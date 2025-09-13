@@ -129,41 +129,13 @@
   from{transform:rotate(0deg)}
   to{transform:rotate(360deg)}
 }
-
-/* ✅ ✅ ✅ زر "سجل كمطور" الجديد */
-#developerLoginBtn {
-  position: absolute;
-  top: 15px;
-  right: 25px;
-  z-index: 100;
-  appearance: none;
-  border: none;
-  background: linear-gradient(180deg, #d4af37, #b48c2a);
-  color: #12121d;
-  font-weight: 800;
-  padding: 8px 16px;
-  font-size: 0.9em;
-  border-radius: 12px;
-  cursor: pointer;
-  box-shadow: 0 4px 10px rgba(212,175,55,0.3);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-  font-family: 'Cairo', sans-serif;
-}
-#developerLoginBtn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 14px rgba(212,175,55,0.4);
-}
-#developerLoginBtn:active {
-  transform: translateY(0);
-  box-shadow: 0 2px 6px rgba(212,175,55,0.2);
-}
 </style>
 </head>
 <body>
 <div id="animePage">
   <!-- كل الهيكل HTML كما هو -->
   <div class="top-header">
-    <div class="user-info"><div id="usernameDisplay">مرحبا: Developers</div></div>
+    <div class="user-info"><div id="usernameDisplay">مرحبا: المستخدم</div></div>
     <h1 class="page-title">Anime Episodes Database</h1>
     <div class="user-section">
       <div class="user-menu" id="userMenu">
@@ -175,9 +147,6 @@
       </div>
     </div>
   </div>
-
-  <!-- ✅ زر "سجل كمطور" الجديد -->
-  <button id="developerLoginBtn">سجل كمطور</button>
 
   <div class="container">
     <div class="controls" id="controlsContainer">
@@ -269,33 +238,338 @@
 
 <script>
 (() => {
-  // ✅ دالة لتسجيل المطور عبر الزر
-  const setupDeveloperLoginButton = () => {
-    const btn = document.getElementById('developerLoginBtn');
-    if (!btn) return;
+  // ✅ تم حذف كل أنظمة الحماية — الصفحة تفتح تلقائيًا لأي مستخدم
 
-    btn.addEventListener('click', () => {
-      const input = prompt(
-        "أدخل اسمك كمطور (أي اسم تريده):\n(سيتم تخزينه محليًا لفتح الصفحة مستقبلًا)"
-      );
+  // عرض الصفحة فورًا
+  document.getElementById('animePage').style.display = 'block';
+  document.getElementById('usernameDisplay').textContent = "مرحبا: المستخدم";
 
-      if (input === null) return; // المستخدم ضغط "إلغاء"
+  const grid = document.getElementById('grid'),
+        formModal = document.getElementById('formModal'),
+        modalTitle = document.getElementById('modalTitle'),
+        fieldName = document.getElementById('fieldName'),
+        fieldEpisode = document.getElementById('fieldEpisode'),
+        fieldImage = document.getElementById('fieldImage'),
+        fieldLink = document.getElementById('fieldLink'),
+        fieldPremiumLink = document.getElementById('fieldPremiumLink'),
+        saveBtn = document.getElementById('saveBtn'),
+        cancelBtn = document.getElementById('cancelBtn'),
+        openAddBtn = document.getElementById('openAddBtn'),
+        refreshBtn = document.getElementById('refreshBtn'),
+        loadingMsg = document.getElementById('loadingMsg'),
+        toast = document.getElementById('toast'),
+        usernameDisplay = document.getElementById("usernameDisplay"),
+        googleSheetBtn = document.getElementById('googleSheetBtn');
 
-      const trimmed = input.trim();
-      if (trimmed === "") {
-        alert("الاسم لا يمكن أن يكون فارغًا.");
-        return;
+  const viewModal = document.getElementById('viewModal'),
+        viewID = document.getElementById('viewID'),
+        viewName = document.getElementById('viewName'),
+        viewEpisode = document.getElementById('viewEpisode'),
+        viewCardName = document.getElementById('viewCardName'),
+        viewImage = document.getElementById('viewImage'),
+        viewLink = document.getElementById('viewLink'),
+        viewPremiumLink = document.getElementById('viewPremiumLink');
+
+  const cardActionDropdown = document.getElementById('cardActionDropdown');
+  let currentEditingId = null;
+
+  // ✅ رابط Google Sheets (استبدل برابطك الفعلي)
+  const SPREADSHEET_ID = "1UxycaX0pPP10YgFUi1dFMeoORN3w_-AfG3K3Hq9QUEU";
+  const API_URL = "https://script.google.com/macros/s/AKfycbxZjBkTQmVnRyD5uWlLJtO3vI6MfEj5K4o7j9r8d4P5qZ3w3x9Qb6y7vY2N7jJZ/exec";
+
+  // ✅ دالة لتحويل رقم الحلقة لصيغة 01, 02, ... 09
+  const formatEpisodeNumber = (num) => {
+    const n = parseInt(num, 10);
+    if (isNaN(n)) return num;
+    return n < 10 ? `0${n}` : `${n}`;
+  };
+
+  // ✅ دالة لبناء اسم البطاقة تلقائيًا
+  const buildCardName = (animeName, episodeNum) => {
+    const formattedEpisode = formatEpisodeNumber(episodeNum);
+    return `مشاهدة الحلقة (${formattedEpisode}) من أنمي ${animeName} مترجمة بأعلى جودة`;
+  };
+
+  // ✅ دالة لتحميل البيانات من Google Apps Script
+  const fetchAnimeList = async () => {
+    loadingMsg.style.display = 'block';
+    loadingMsg.textContent = "جاري تحميل البيانات من قاعدة البيانات...";
+    refreshBtn.disabled = true;
+    refreshBtn.innerHTML = '<i class="bi bi-arrow-repeat spin"></i> جاري التحديث...';
+    grid.style.display = 'none';
+
+    try {
+      const response = await fetch(API_URL);
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      const data = await response.json();
+      
+      if (data.success && Array.isArray(data.data)) {
+        return data.data.map(item => ({
+          ID: item.ID || '',
+          'Anime Name': item['Anime Name'] || '',
+          'Episode Number': item['Episode Number'] || '',
+          'Card Name': item['Card Name'] || '',
+          'Image URL': item['Image URL'] || '',
+          Link: item.Link || '',
+          'Premium Link': item['Premium Link'] || ''
+        }));
+      } else {
+        throw new Error('البيانات غير صالحة');
       }
+    } catch (error) {
+      console.error('خطأ في جلب البيانات:', error);
+      showToast("فشل في تحميل البيانات. تحقق من الاتصال أو اتصل بالمطور.");
+      return [];
+    } finally {
+      loadingMsg.style.display = 'none';
+      refreshBtn.disabled = false;
+      refreshBtn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> تحديث القائمة';
+      grid.style.display = 'grid';
+    }
+  };
 
-      localStorage.setItem("premiumUser", trimmed);
-      showToast(`تم تسجيلك كمطور: ${trimmed}`);
-      location.reload(); // إعادة تحميل الصفحة
+  // ✅ دالة لحفظ بيانات جديدة أو تعديلها في Google Sheets
+  const saveToSheet = async (data, isUpdate = false) => {
+    const payload = {
+      action: isUpdate ? 'update' : 'create',
+      data
+    };
+
+    try {
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const result = await response.json();
+      if (result.success) {
+        return true;
+      } else {
+        throw new Error(result.message || 'فشل الحفظ');
+      }
+    } catch (error) {
+      console.error('خطأ في الحفظ:', error);
+      return false;
+    }
+  };
+
+  // ✅ دالة لحذف سطر من Google Sheets
+  const deleteFromSheet = async (id) => {
+    const payload = {
+      action: 'delete',
+      id: id
+    };
+
+    try {
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const result = await response.json();
+      return result.success;
+    } catch (error) {
+      console.error('خطأ في الحذف:', error);
+      return false;
+    }
+  };
+
+  // ✅ عرض البطاقات بناءً على البيانات
+  const renderGrid = (list) => {
+    grid.innerHTML = '';
+    list.forEach(item => {
+      const card = document.createElement('div');
+      card.className = 'anime-card';
+      card.dataset.id = item.ID;
+
+      card.innerHTML = `
+        <img src="${item['Image URL'] || 'https://via.placeholder.com/180x210?text=No+Image'}" alt="${item['Anime Name']}">
+        <div class="title">${item['Card Name'] || 'غير معرف'}</div>
+        <div class="card-menu" title="خيارات البطاقة"><i class="bi bi-three-dots-vertical"></i></div>
+      `;
+
+      card.addEventListener('click', (e) => {
+        if (!e.target.closest('.card-menu')) {
+          openViewModal(item);
+        }
+      });
+
+      const menuBtn = card.querySelector('.card-menu');
+      menuBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const rect = menuBtn.getBoundingClientRect();
+        cardActionDropdown.style.display = 'flex';
+        cardActionDropdown.style.top = (rect.bottom + window.scrollY) + 'px';
+        cardActionDropdown.style.left = (rect.left + window.scrollX) + 'px';
+        currentEditingId = item.ID;
+        document.addEventListener('click', closeDropdown);
+      });
+
+      grid.appendChild(card);
     });
   };
 
-  // ✅ دالة لإظهار التنبيهات
+  // ✅ إغلاق القائمة المنبثقة
+  const closeDropdown = () => {
+    cardActionDropdown.style.display = 'none';
+    document.removeEventListener('click', closeDropdown);
+  };
+
+  // ✅ فتح مودال العرض
+  const openViewModal = (item) => {
+    viewID.value = item.ID;
+    viewName.value = item['Anime Name'];
+    viewEpisode.value = item['Episode Number'];
+    viewCardName.value = item['Card Name'];
+    viewImage.value = item['Image URL'];
+    viewLink.value = item.Link;
+    viewPremiumLink.value = item['Premium Link'];
+    viewModal.style.display = 'flex';
+  };
+
+  // ✅ فتح مودال الإضافة / التعديل
+  const openModal = (isEdit = false, item = null) => {
+    modalTitle.textContent = isEdit ? "تعديل الحلقة" : "إضافة حلقة جديدة";
+    fieldName.value = isEdit ? item['Anime Name'] : "";
+    fieldEpisode.value = isEdit ? item['Episode Number'] : "";
+    fieldImage.value = isEdit ? item['Image URL'] : "";
+    fieldLink.value = isEdit ? item.Link : "";
+    fieldPremiumLink.value = isEdit ? item['Premium Link'] : "";
+
+    if (isEdit) {
+      currentEditingId = item.ID;
+    } else {
+      currentEditingId = null;
+    }
+
+    formModal.style.display = "flex";
+  };
+
+  // ✅ إغلاق مودال الإضافة
+  const closeModal = () => {
+    formModal.style.display = "none";
+    currentEditingId = null;
+  };
+
+  // ✅ حفظ الحلقة (إضافة أو تعديل)
+  const saveAnime = async () => {
+    const animeName = fieldName.value.trim();
+    const episodeNum = fieldEpisode.value.trim();
+    const image = fieldImage.value.trim();
+    const link = fieldLink.value.trim();
+    const premium = fieldPremiumLink.value.trim();
+
+    if (!animeName || !episodeNum || !image || !link || !premium) {
+      showToast("يرجى ملء جميع الحقول");
+      return;
+    }
+
+    if (!/^\d+$/.test(episodeNum)) {
+      showToast("رقم الحلقة يجب أن يكون أرقامًا فقط");
+      return;
+    }
+
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = '<i class="bi bi-arrow-repeat spin"></i> جاري الحفظ...';
+
+    const formattedEpisode = formatEpisodeNumber(episodeNum);
+    const cardName = buildCardName(animeName, formattedEpisode);
+
+    const newData = {
+      'Anime Name': animeName,
+      'Episode Number': episodeNum,
+      'Card Name': cardName,
+      'Image URL': image,
+      Link: link,
+      'Premium Link': premium
+    };
+
+    let success;
+    if (currentEditingId) {
+      newData.ID = currentEditingId;
+      success = await saveToSheet(newData, true);
+      if (success) showToast("تم التعديل بنجاح");
+    } else {
+      success = await saveToSheet(newData);
+      if (success) showToast("تم الحفظ بنجاح");
+    }
+
+    if (success) {
+      closeModal();
+      updateGrid(true);
+    } else {
+      showToast("فشل الحفظ. حاول مرة أخرى.");
+      saveBtn.disabled = false;
+      saveBtn.innerHTML = 'حفظ';
+    }
+  };
+
+  // ✅ عرض التفاصيل من القائمة المنبثقة
+  window.viewEpisode = function (el) {
+    closeDropdown();
+    const item = animeList.find(a => a.ID === currentEditingId);
+    if (item) openViewModal(item);
+  };
+
+  // ✅ تعديل من القائمة المنبثقة
+  window.editEpisode = function (el) {
+    closeDropdown();
+    const item = animeList.find(a => a.ID === currentEditingId);
+    if (item) openModal(true, item);
+  };
+
+  // ✅ حذف من القائمة المنبثقة
+  window.deleteEpisode = async function (el) {
+    closeDropdown();
+    if (!confirm("هل أنت متأكد أنك تريد حذف هذه الحلقة؟ لا يمكن التراجع عن هذا الإجراء!")) return;
+
+    const success = await deleteFromSheet(currentEditingId);
+    if (success) {
+      showToast("تم الحذف بنجاح");
+      updateGrid(true);
+    } else {
+      showToast("فشل الحذف. حاول مرة أخرى.");
+    }
+  };
+
+  // ✅ تحديث الشاشة (استدعاء fetch + render)
+  const updateGrid = async (showLoading = true) => {
+    if (showLoading) {
+      loadingMsg.style.display = 'block';
+      loadingMsg.textContent = firstLoad ? "جاري تحميل البيانات..." : "جاري تحديث البيانات...";
+      refreshBtn.disabled = true;
+      refreshBtn.innerHTML = '<i class="bi bi-arrow-repeat spin"></i> جاري التحديث...';
+    }
+    grid.style.display = 'none';
+
+    animeList = await fetchAnimeList();
+    renderGrid(animeList);
+
+    if (showLoading) {
+      loadingMsg.style.display = 'none';
+      refreshBtn.disabled = false;
+      refreshBtn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> تحديث القائمة';
+      grid.style.display = 'grid';
+    }
+    firstLoad = false;
+  };
+
+  // ✅ نسخ الحقل
+  window.copyField = (fieldID) => {
+    const input = document.getElementById(fieldID);
+    input.select();
+    input.setSelectionRange(0, 99999);
+    document.execCommand("copy");
+    showToast("تم النسخ!");
+  };
+
+  // ✅ إغلاق مودال العرض
+  window.closeViewModal = () => {
+    viewModal.style.display = 'none';
+  };
+
+  // ✅ إشعارات Toast
   const showToast = (msg) => {
-    const toast = document.getElementById('toast');
     toast.textContent = msg;
     toast.style.opacity = '1';
     toast.style.transform = 'translateX(-50%) scale(1.1)';
@@ -312,407 +586,56 @@
     }, 2000);
   };
 
-  // ✅ تحقق تلقائي من localStorage
-  const currentUser = localStorage.getItem("premiumUser");
-
-  // ✅ إذا كان هناك اسم مسجل — افتح الصفحة فورًا
-  if (currentUser) {
-    document.getElementById('animePage').style.display = 'block';
-    document.getElementById('usernameDisplay').textContent = "مرحبا: " + currentUser;
-
-    // ✅ استمر في تشغيل باقي النظام
-    startApp();
-  } else {
-    // ✅ إذا لم يكن هناك اسم — أظهر الزر فقط
-    document.getElementById('animePage').style.display = 'none';
-    setupDeveloperLoginButton();
-
-    // ✅ عرض رسالة التحذير
-    alert("هذه الصفحة مخصصة للمطورين فقط.\n\nاضغط على زر 'سجل كمطور' أدناه لتسجيل اسمك وفتح الصفحة.");
-  }
-
-  // ✅ دالة بدء التطبيق (الوظائف الأساسية)
-  function startApp() {
-    const grid = document.getElementById('grid'),
-          formModal = document.getElementById('formModal'),
-          modalTitle = document.getElementById('modalTitle'),
-          fieldName = document.getElementById('fieldName'),
-          fieldEpisode = document.getElementById('fieldEpisode'),
-          fieldImage = document.getElementById('fieldImage'),
-          fieldLink = document.getElementById('fieldLink'),
-          fieldPremiumLink = document.getElementById('fieldPremiumLink'),
-          saveBtn = document.getElementById('saveBtn'),
-          cancelBtn = document.getElementById('cancelBtn'),
-          openAddBtn = document.getElementById('openAddBtn'),
-          refreshBtn = document.getElementById('refreshBtn'),
-          loadingMsg = document.getElementById('loadingMsg'),
-          toast = document.getElementById('toast'),
-          usernameDisplay = document.getElementById("usernameDisplay"),
-          googleSheetBtn = document.getElementById('googleSheetBtn');
-
-    const viewModal = document.getElementById('viewModal'),
-          viewID = document.getElementById('viewID'),
-          viewName = document.getElementById('viewName'),
-          viewEpisode = document.getElementById('viewEpisode'),
-          viewCardName = document.getElementById('viewCardName'),
-          viewImage = document.getElementById('viewImage'),
-          viewLink = document.getElementById('viewLink'),
-          viewPremiumLink = document.getElementById('viewPremiumLink');
-
-    const cardActionDropdown = document.getElementById('cardActionDropdown');
-    let currentEditingId = null;
-
-    // ✅ رابط Google Sheets (استبدل برابطك الفعلي)
-    const SPREADSHEET_ID = "1UxycaX0pPP10YgFUi1dFMeoORN3w_-AfG3K3Hq9QUEU";
-    const API_URL = "https://script.google.com/macros/s/AKfycbxZjBkTQmVnRyD5uWlLJtO3vI6MfEj5K4o7j9r8d4P5qZ3w3x9Qb6y7vY2N7jJZ/exec";
-
-    // ✅ دالة لتحويل رقم الحلقة لصيغة 01, 02, ... 09
-    const formatEpisodeNumber = (num) => {
-      const n = parseInt(num, 10);
-      if (isNaN(n)) return num;
-      return n < 10 ? `0${n}` : `${n}`;
-    };
-
-    // ✅ دالة لبناء اسم البطاقة تلقائيًا
-    const buildCardName = (animeName, episodeNum) => {
-      const formattedEpisode = formatEpisodeNumber(episodeNum);
-      return `مشاهدة الحلقة (${formattedEpisode}) من أنمي ${animeName} مترجمة بأعلى جودة`;
-    };
-
-    // ✅ دالة لتحميل البيانات من Google Apps Script
-    const fetchAnimeList = async () => {
-      loadingMsg.style.display = 'block';
-      loadingMsg.textContent = "جاري تحميل البيانات من قاعدة البيانات...";
-      refreshBtn.disabled = true;
-      refreshBtn.innerHTML = '<i class="bi bi-arrow-repeat spin"></i> جاري التحديث...';
-      grid.style.display = 'none';
-
-      try {
-        const response = await fetch(API_URL);
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        const data = await response.json();
-        
-        if (data.success && Array.isArray(data.data)) {
-          return data.data.map(item => ({
-            ID: item.ID || '',
-            'Anime Name': item['Anime Name'] || '',
-            'Episode Number': item['Episode Number'] || '',
-            'Card Name': item['Card Name'] || '',
-            'Image URL': item['Image URL'] || '',
-            Link: item.Link || '',
-            'Premium Link': item['Premium Link'] || ''
-          }));
-        } else {
-          throw new Error('البيانات غير صالحة');
-        }
-      } catch (error) {
-        console.error('خطأ في جلب البيانات:', error);
-        showToast("فشل في تحميل البيانات. تحقق من الاتصال أو اتصل بالمطور.");
-        return [];
-      } finally {
-        loadingMsg.style.display = 'none';
-        refreshBtn.disabled = false;
-        refreshBtn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> تحديث القائمة';
-        grid.style.display = 'grid';
-      }
-    };
-
-    // ✅ دالة لحفظ بيانات جديدة أو تعديلها في Google Sheets
-    const saveToSheet = async (data, isUpdate = false) => {
-      const payload = {
-        action: isUpdate ? 'update' : 'create',
-        data
-      };
-
-      try {
-        const response = await fetch(API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-        const result = await response.json();
-        if (result.success) {
-          return true;
-        } else {
-          throw new Error(result.message || 'فشل الحفظ');
-        }
-      } catch (error) {
-        console.error('خطأ في الحفظ:', error);
-        return false;
-      }
-    };
-
-    // ✅ دالة لحذف سطر من Google Sheets
-    const deleteFromSheet = async (id) => {
-      const payload = {
-        action: 'delete',
-        id: id
-      };
-
-      try {
-        const response = await fetch(API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-        const result = await response.json();
-        return result.success;
-      } catch (error) {
-        console.error('خطأ في الحذف:', error);
-        return false;
-      }
-    };
-
-    // ✅ عرض البطاقات بناءً على البيانات
-    const renderGrid = (list) => {
-      grid.innerHTML = '';
-      list.forEach(item => {
-        const card = document.createElement('div');
-        card.className = 'anime-card';
-        card.dataset.id = item.ID;
-
-        card.innerHTML = `
-          <img src="${item['Image URL'] || 'https://via.placeholder.com/180x210?text=No+Image'}" alt="${item['Anime Name']}">
-          <div class="title">${item['Card Name'] || 'غير معرف'}</div>
-          <div class="card-menu" title="خيارات البطاقة"><i class="bi bi-three-dots-vertical"></i></div>
-        `;
-
-        card.addEventListener('click', (e) => {
-          if (!e.target.closest('.card-menu')) {
-            openViewModal(item);
-          }
-        });
-
-        const menuBtn = card.querySelector('.card-menu');
-        menuBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const rect = menuBtn.getBoundingClientRect();
-          cardActionDropdown.style.display = 'flex';
-          cardActionDropdown.style.top = (rect.bottom + window.scrollY) + 'px';
-          cardActionDropdown.style.left = (rect.left + window.scrollX) + 'px';
-          currentEditingId = item.ID;
-          document.addEventListener('click', closeDropdown);
-        });
-
-        grid.appendChild(card);
-      });
-    };
-
-    // ✅ إغلاق القائمة المنبثقة
-    const closeDropdown = () => {
-      cardActionDropdown.style.display = 'none';
-      document.removeEventListener('click', closeDropdown);
-    };
-
-    // ✅ فتح مودال العرض
-    const openViewModal = (item) => {
-      viewID.value = item.ID;
-      viewName.value = item['Anime Name'];
-      viewEpisode.value = item['Episode Number'];
-      viewCardName.value = item['Card Name'];
-      viewImage.value = item['Image URL'];
-      viewLink.value = item.Link;
-      viewPremiumLink.value = item['Premium Link'];
-      viewModal.style.display = 'flex';
-    };
-
-    // ✅ فتح مودال الإضافة / التعديل
-    const openModal = (isEdit = false, item = null) => {
-      modalTitle.textContent = isEdit ? "تعديل الحلقة" : "إضافة حلقة جديدة";
-      fieldName.value = isEdit ? item['Anime Name'] : "";
-      fieldEpisode.value = isEdit ? item['Episode Number'] : "";
-      fieldImage.value = isEdit ? item['Image URL'] : "";
-      fieldLink.value = isEdit ? item.Link : "";
-      fieldPremiumLink.value = isEdit ? item['Premium Link'] : "";
-
-      if (isEdit) {
-        currentEditingId = item.ID;
+  // ✅ البحث التلقائي
+  const searchInput = document.getElementById('searchInput');
+  const filterCards = () => {
+    const query = searchInput.value.toLowerCase().trim();
+    const cards = document.querySelectorAll('.anime-card');
+    cards.forEach(card => {
+      const titleElement = card.querySelector('.title');
+      const titleText = titleElement.textContent.toLowerCase();
+      if (query === '' || titleText.includes(query)) {
+        card.style.display = 'block';
       } else {
-        currentEditingId = null;
-      }
-
-      formModal.style.display = "flex";
-    };
-
-    // ✅ إغلاق مودال الإضافة
-    const closeModal = () => {
-      formModal.style.display = "none";
-      currentEditingId = null;
-    };
-
-    // ✅ حفظ الحلقة (إضافة أو تعديل)
-    const saveAnime = async () => {
-      const animeName = fieldName.value.trim();
-      const episodeNum = fieldEpisode.value.trim();
-      const image = fieldImage.value.trim();
-      const link = fieldLink.value.trim();
-      const premium = fieldPremiumLink.value.trim();
-
-      if (!animeName || !episodeNum || !image || !link || !premium) {
-        showToast("يرجى ملء جميع الحقول");
-        return;
-      }
-
-      if (!/^\d+$/.test(episodeNum)) {
-        showToast("رقم الحلقة يجب أن يكون أرقامًا فقط");
-        return;
-      }
-
-      saveBtn.disabled = true;
-      saveBtn.innerHTML = '<i class="bi bi-arrow-repeat spin"></i> جاري الحفظ...';
-
-      const formattedEpisode = formatEpisodeNumber(episodeNum);
-      const cardName = buildCardName(animeName, formattedEpisode);
-
-      const newData = {
-        'Anime Name': animeName,
-        'Episode Number': episodeNum,
-        'Card Name': cardName,
-        'Image URL': image,
-        Link: link,
-        'Premium Link': premium
-      };
-
-      let success;
-      if (currentEditingId) {
-        newData.ID = currentEditingId;
-        success = await saveToSheet(newData, true);
-        if (success) showToast("تم التعديل بنجاح");
-      } else {
-        success = await saveToSheet(newData);
-        if (success) showToast("تم الحفظ بنجاح");
-      }
-
-      if (success) {
-        closeModal();
-        updateGrid(true);
-      } else {
-        showToast("فشل الحفظ. حاول مرة أخرى.");
-        saveBtn.disabled = false;
-        saveBtn.innerHTML = 'حفظ';
-      }
-    };
-
-    // ✅ عرض التفاصيل من القائمة المنبثقة
-    window.viewEpisode = function (el) {
-      closeDropdown();
-      const item = animeList.find(a => a.ID === currentEditingId);
-      if (item) openViewModal(item);
-    };
-
-    // ✅ تعديل من القائمة المنبثقة
-    window.editEpisode = function (el) {
-      closeDropdown();
-      const item = animeList.find(a => a.ID === currentEditingId);
-      if (item) openModal(true, item);
-    };
-
-    // ✅ حذف من القائمة المنبثقة
-    window.deleteEpisode = async function (el) {
-      closeDropdown();
-      if (!confirm("هل أنت متأكد أنك تريد حذف هذه الحلقة؟ لا يمكن التراجع عن هذا الإجراء!")) return;
-
-      const success = await deleteFromSheet(currentEditingId);
-      if (success) {
-        showToast("تم الحذف بنجاح");
-        updateGrid(true);
-      } else {
-        showToast("فشل الحذف. حاول مرة أخرى.");
-      }
-    };
-
-    // ✅ تحديث الشاشة (استدعاء fetch + render)
-    const updateGrid = async (showLoading = true) => {
-      if (showLoading) {
-        loadingMsg.style.display = 'block';
-        loadingMsg.textContent = firstLoad ? "جاري تحميل البيانات..." : "جاري تحديث البيانات...";
-        refreshBtn.disabled = true;
-        refreshBtn.innerHTML = '<i class="bi bi-arrow-repeat spin"></i> جاري التحديث...';
-      }
-      grid.style.display = 'none';
-
-      animeList = await fetchAnimeList();
-      renderGrid(animeList);
-
-      if (showLoading) {
-        loadingMsg.style.display = 'none';
-        refreshBtn.disabled = false;
-        refreshBtn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> تحديث القائمة';
-        grid.style.display = 'grid';
-      }
-      firstLoad = false;
-    };
-
-    // ✅ نسخ الحقل
-    window.copyField = (fieldID) => {
-      const input = document.getElementById(fieldID);
-      input.select();
-      input.setSelectionRange(0, 99999);
-      document.execCommand("copy");
-      showToast("تم النسخ!");
-    };
-
-    // ✅ إغلاق مودال العرض
-    window.closeViewModal = () => {
-      viewModal.style.display = 'none';
-    };
-
-    // ✅ البحث التلقائي
-    const searchInput = document.getElementById('searchInput');
-    const filterCards = () => {
-      const query = searchInput.value.toLowerCase().trim();
-      const cards = document.querySelectorAll('.anime-card');
-      cards.forEach(card => {
-        const titleElement = card.querySelector('.title');
-        const titleText = titleElement.textContent.toLowerCase();
-        if (query === '' || titleText.includes(query)) {
-          card.style.display = 'block';
-        } else {
-          card.style.display = 'none';
-        }
-      });
-    };
-    searchInput.addEventListener('input', filterCards);
-
-    // ✅ ضبط إدخال رقم الحلقة ليقبل أرقام فقط
-    fieldEpisode.addEventListener('input', function () {
-      this.value = this.value.replace(/[^0-9]/g, '');
-    });
-
-    // ✅ تفعيل الزر "فتح الشيت"
-    document.getElementById('googleSheetBtn').addEventListener('click', () => {
-      window.open('https://docs.google.com/spreadsheets/d/1UxycaX0pPP10YgFUi1dFMeoORN3w_-AfG3K3Hq9QUEU/edit?usp=sharing', '_blank');
-    });
-
-    // ✅ إدارة القائمة المنبثقة
-    document.addEventListener('click', (e) => {
-      if (!document.querySelector('.card-menu').contains(e.target)) {
-        closeDropdown();
+        card.style.display = 'none';
       }
     });
+  };
+  searchInput.addEventListener('input', filterCards);
 
-    // ✅ أحداث الأزرار
-    openAddBtn.addEventListener('click', () => openModal(false));
-    cancelBtn.addEventListener('click', closeModal);
-    saveBtn.addEventListener('click', saveAnime);
-    refreshBtn.addEventListener('click', () => updateGrid(true));
+  // ✅ ضبط إدخال رقم الحلقة ليقبل أرقام فقط
+  fieldEpisode.addEventListener('input', function () {
+    this.value = this.value.replace(/[^0-9]/g, '');
+  });
 
-    // ✅ تسجيل الخروج
-    window.logout = () => {
-      localStorage.removeItem("premiumUser");
-      window.location.href = "https://zero4animes.blogspot.com/p/zero-anime-body-margin-0-padding-0-font_6.html";
-    };
+  // ✅ تفعيل الزر "فتح الشيت"
+  document.getElementById('googleSheetBtn').addEventListener('click', () => {
+    window.open('https://docs.google.com/spreadsheets/d/1UxycaX0pPP10YgFUi1dFMeoORN3w_-AfG3K3Hq9QUEU/edit?usp=sharing', '_blank');
+  });
 
-    // ✅ تحميل البيانات عند أول تحميل
-    let animeList = [];
-    let firstLoad = true;
-    updateGrid(true);
-  }
+  // ✅ إدارة القائمة المنبثقة
+  document.addEventListener('click', (e) => {
+    if (!document.querySelector('.card-menu').contains(e.target)) {
+      closeDropdown();
+    }
+  });
 
-  // ✅ تفعيل الزر فقط إذا لم يكن هناك مستخدم مسجل
-  if (!localStorage.getItem("premiumUser")) {
-    setupDeveloperLoginButton();
-  }
+  // ✅ أحداث الأزرار
+  openAddBtn.addEventListener('click', () => openModal(false));
+  cancelBtn.addEventListener('click', closeModal);
+  saveBtn.addEventListener('click', saveAnime);
+  refreshBtn.addEventListener('click', () => updateGrid(true));
+
+  // ✅ تسجيل الخروج
+  window.logout = () => {
+    localStorage.removeItem("premiumUser");
+    window.location.href = "https://zero4animes.blogspot.com/p/zero-anime-body-margin-0-padding-0-font_6.html";
+  };
+
+  // ✅ تحميل البيانات عند أول تحميل
+  let animeList = [];
+  let firstLoad = true;
+  updateGrid(true);
 
 })();
 </script>
