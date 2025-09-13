@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Anime Episodes Database</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+<!-- مكتبة أيقونات -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+
+<style>
+/* نخفي الصفحة افتراضياً */
+#animePage{display:none;}
+#animePage,#animePage *{box-sizing:border-box;font-family:'Cairo',sans-serif}
+#animePage{direction:rtl;background:#0f0f1a;color:#eaeaea;min-height:100vh}
+.top-header{width:100%;Display:flex;justify-content:space-between;align-items:center;padding:15px 25px;background:#1a1a2e;box-shadow:0 0 15px rgba(0,0,0,0.8);position:relative;flex-wrap:wrap}
+.page-title{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:2.5em;text-shadow:0 0 20px rgba(212,175,55,0.8);margin:0;text-align:center;user-select:none}
+.user-section{display:flex;align-items:center;gap:15px}
+.user-info{text-align:right;font-size:1.1em;line-height:1.6}
+.user-menu{position:relative;cursor:pointer}
+.user-icon{width:45px;height:45px;background:#d4af37;color:#0f0f1a;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.4em;font-weight:bold;box-shadow:0 0 12px rgba(212,175,55,0.8)}
+.dropdown{position:absolute;top:55px;left:0;background:#1a1a2e;border-radius:8px;box-shadow:0 0 15px rgba(0,0,0,0.7);display:none;flex-direction:column;min-width:180px;z-index:10}
+.dropdown a{padding:12px 15px;text-decoration:none;color:#fff;font-size:1.1em;transition:.3s}
+.dropdown a:hover{background:rgba(212,175,55,0.2);color:#d4af37}
+#animePage .container{max-width:1100px;margin:26px auto;padding:0 14px}
+#animePage .controls{display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap;margin-bottom:10px}
+#animePage .btn{appearance:none;border:2px solid rgba(212,175,55,0.35);background:linear-gradient(180deg,#d4af37,#b48c2a);color:#12121d;font-weight:800;padding:14px 22px;font-size:1.1em;border-radius:14px;cursor:pointer;box-shadow:0 10px 22px rgba(212,175,55,.25),inset 0 1px 0 rgba(255,255,255,.25);transition:transform .18s ease,box-shadow .18s ease,filter .18s ease;display:flex;align-items:center;gap:8px}
+#animePage .btn:hover{transform:translateY(-2px);filter:brightness(1.02)}
+#animePage .btn:active{transform:translateY(0);box-shadow:0 5px 12px rgba(212,175,55,.2)}
+#animePage .btn.secondary{background:rgba(255,255,255,.05);color:#d4af37;font-weight:700;border-color:rgba(212,175,55,.35)}
+/* زر جوجل شيت الأخضر - تم حذف الوظيفة لكن ظل الاستايل كما هو */
+#animePage .btn.google-sheet{
+  border-color:rgba(76,175,80,0.5);
+  background:linear-gradient(180deg,#4caf50,#388e3c);
+  color:#fff;
+  box-shadow:0 10px 22px rgba(76,175,80,0.4),inset 0 1px 0 rgba(255,255,255,.15);
+  font-weight:700;
+  transition:transform .18s ease,box-shadow .18s ease,filter .18s ease;
+}
+#animePage .btn.google-sheet:hover{transform:translateY(-2px);filter:brightness(1.08);box-shadow:0 12px 28px rgba(76,175,80,0.6),inset 0 1px 0 rgba(255,255,255,.15);}
+#animePage .btn.google-sheet:active{transform:translateY(0);box-shadow:0 6px 14px rgba(76,175,80,0.45);}
+
+#animePage .loading-msg{text-align:center;font-size:1em;color:#d4af37;margin-bottom:12px;font-weight:bold;display:none}
+#animePage .anime-grid{display:grid;gap:18px;grid-template-columns:repeat(auto-fill,minmax(180px,1fr))}
+#animePage .anime-card{position:relative;overflow:hidden;border-radius:16px;background:#1a1a2e;border:1px solid rgba(212,175,55,.22);box-shadow:0 12px 28px rgba(0,0,0,.45),inset 0 0 0 1px rgba(255,255,255,.02);transition:transform .25s ease,box-shadow .25s ease,border-color .25s ease;cursor:pointer;min-height:240px}
+#animePage .anime-card:hover{transform:translateY(-6px);border-color:rgba(212,175,55,.45);box-shadow:0 18px 36px rgba(212,175,55,.2),0 10px 24px rgba(0,0,0,.6)}
+#animePage .anime-card img{width:100%;height:210px;object-fit:cover;display:block;filter:saturate(1.02)}
+#animePage .anime-card .title{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(0deg,rgba(0,0,0,.85),rgba(0,0,0,.3));color:#fff;padding:10px 12px;text-align:center;font-weight:700;font-size:15px}
+#animePage .card-menu{position:absolute;top:10px;left:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:5;background:none;width:auto;height:auto}
+#animePage .card-menu i{color:#d4af37;font-size:22px}
+#animePage .view-modal .box input{cursor:default;user-select:all}
+
+/* تعديل حجم المودال ليكون متجاوب */
+#animePage .modal,#animePage .view-modal{
+  position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.55);z-index:9999;
+}
+#animePage .modal .box,#animePage .view-modal .box{
+  width:min(520px,92vw);
+  max-height:90vh;
+  overflow-y:auto;
+  background:#121223;border-radius:16px;border:1px solid rgba(212,175,55,.3);
+  box-shadow:0 20px 50px rgba(0,0,0,.65),inset 0 0 0 1px rgba(255,255,255,.02);padding:20px 18px;
+}
+
+#animePage .modal .box .title,#animePage .view-modal .box .title{margin:0 0 14px;color:#d4af37;font-size:20px;font-weight:800;text-align:center;text-shadow:0 0 10px rgba(212,175,55,.4)}
+#animePage .form-grid{display:grid;gap:10px}
+#animePage .field{display:flex;align-items:center;gap:6px}
+#animePage label{color:#bfa24a;font-weight:700;font-size:13px;min-width:90px}
+#animePage input[type="text"]{flex:1;padding:12px 14px;text-align:center;border-radius:12px;border:1px solid rgba(212,175,55,.28);background:#1a1a2e;color:#fff;outline:none;box-shadow:inset 0 1px 0 rgba(255,255,255,.06);transition:border-color .18s ease,box-shadow .18s ease;font-family:'Cairo',sans-serif;font-weight:600}
+#animePage input[type="text"]::placeholder{color:#b6b6b6}
+#animePage input[type="text"]:focus{border-color:rgba(212,175,55,.55);box-shadow:0 0 0 3px rgba(212,175,55,.18)}
+.copy-icon{background:none;border:none;color:#d4af37;font-size:1.2em;cursor:pointer}
+#animePage .modal .actions,#animePage .view-modal .actions{display:flex;gap:10px;margin-top:16px}
+#animePage .modal .actions .btn,#animePage .view-modal .actions .btn{flex:1;justify-content:center}
+#animePage .custom-toast{position:fixed;top:25%;left:50%;transform:translateX(-50%) scale(0);display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#d4af37,#b48c2a);color:#12121d;padding:18px 28px;border:2px solid rgba(212,175,55,.65);border-radius:16px;box-shadow:0 18px 36px rgba(0,0,0,.7);z-index:10000;font-weight:900;font-size:1.15em;opacity:0;transition:transform .4s ease,opacity .4s ease}
+
+/* ========================================= */
+/* ✅ استايل خانة البحث الجديد (مأخوذ من الصفحة الثانية) */
+#animePage .search-container {
+  display: flex;
+  justify-content: center;
+  margin: 25px auto 20px;
+  width: 100%;
+  max-width: 400px;
+  padding: 0 14px;
+  box-sizing: border-box;
+}
+#animePage .search-input {
+  width: 100%;
+  padding: 10px 15px;
+  text-align: center;
+  font-family: 'Cairo', sans-serif;
+  font-weight: 600;
+  font-size: 1em;
+  color: #d4af37;
+  background: rgba(255,255,255,0.05);
+  border: 2px solid #d4af37;
+  border-radius: 12px;
+  outline: none;
+  box-shadow: 0 0 10px rgba(212,175,55,0.3);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+#animePage .search-input::placeholder {
+  color: #d4af37;
+  opacity: 0.7;
+}
+#animePage .search-input:focus {
+  border-color: #d4af37;
+  box-shadow: 0 0 0 3px rgba(212,175,55,0.2);
+}
+/* ========================================= */
+
+@media(max-width:520px){
+#animePage .anime-card img{height:180px}
+.top-header{flex-direction:column;align-items:center;text-align:center;gap:10px}
+.page-title{position:static;transform:none;margin:10px 0;font-size:2em}
+.user-section{flex-direction:column}
+#animePage .search-container { max-width: 90vw; }
+#animePage .search-input { padding: 9px 14px; font-size: 0.95em; }
+}
+
+/* حركة الدوران */
+.spin {
+  display:inline-block;
+  animation:spin 1s linear infinite;
+}
+@keyframes spin {
+  from{transform:rotate(0deg)}
+  to{transform:rotate(360deg)}
+}
+</style>
+</head>
+<body>
+<div id="animePage">
+  <!-- كل الهيكل HTML كما هو -->
+  <div class="top-header">
+    <div class="user-info"><div id="usernameDisplay">مرحبا: Developers</div></div>
+    <h1 class="page-title">Anime Episodes Database</h1>
+    <div class="user-section">
+      <div class="user-menu" id="userMenu">
+        <div class="user-icon"><i class="bi bi-person-fill"></i></div>
+        <div class="dropdown" id="dropdownMenu">
+          <a href="#" onclick="logout()">تسجيل الخروج</a>
+          <a href="https://docs.google.com/spreadsheets/d/1UxycaX0pPP10YgFUi1dFMeoORN3w_-AfG3K3Hq9QUEU/edit?usp=sharing" target="_blank">فتح الشيت</a>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="container">
+    <div class="controls" id="controlsContainer">
+      <button class="btn" id="openAddBtn"><i class="bi bi-plus-circle"></i> إضافة حلقة جديدة</button>
+      <button class="btn secondary" id="refreshBtn"><i class="bi bi-arrow-clockwise"></i> تحديث القائمة</button>
+      <button class="btn google-sheet" id="googleSheetBtn"><i class="bi bi-file-earmark-spreadsheet"></i> للحذف والتعديل</button>
+    </div>
+
+    <!-- ✅ خانة البحث الجديدة بالاستايل المطلوب + مسافات محسنة -->
+    <div class="search-container">
+      <input type="text" class="search-input" id="searchInput" placeholder="ابحث عن اسم الحلقة..." aria-label="بحث عن حلقة أنمي">
+    </div>
+
+    <div class="loading-msg" id="loadingMsg">جاري تحديث البيانات...</div>
+    <div id="grid" class="anime-grid"></div>
+  </div>
+
+  <!-- Modals -->
+  <div class="modal" id="formModal" aria-hidden="true">
+    <div class="box">
+      <h3 class="title" id="modalTitle">إضافة حلقة</h3>
+      <div class="form-grid">
+        <div class="field"><label for="fieldName">اسم الأنمي</label><input type="text" id="fieldName" placeholder="مثال: Detective Conan"></div>
+        <div class="field"><label for="fieldEpisode">رقم الحلقة</label><input type="text" id="fieldEpisode" placeholder="مثال: 1" maxlength="10"></div>
+        <div class="field"><label for="fieldImage">رابط صورة الحلقة</label><input type="text" id="fieldImage" placeholder="https://example.com/cover.jpg"></div>
+        <div class="field"><label for="fieldLink">رابط النسخة المجانية</label><input type="text" id="fieldLink" placeholder="https://example.com/free"></div>
+        <div class="field"><label for="fieldPremiumLink">رابط النسخة المميزة</label><input type="text" id="fieldPremiumLink" placeholder="https://example.com/premium"></div>
+      </div>
+      <div class="actions">
+        <button class="btn" id="saveBtn">حفظ</button>
+        <button class="btn secondary" id="cancelBtn">إلغاء</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="view-modal" id="viewModal">
+    <div class="box">
+      <h3 class="title">بيانات الحلقة</h3>
+      <div class="form-grid">
+        <div class="field">
+          <label style="flex:0 0 90px; text-align:center;">ID</label>
+          <input type="text" id="viewID" readonly>
+          <button class="copy-icon" onclick="copyField('viewID')"><i class="bi bi-clipboard"></i></button>
+        </div>
+        <div class="field">
+          <label style="flex:0 0 90px; text-align:center;">اسم الأنمي</label>
+          <input type="text" id="viewName" readonly>
+          <button class="copy-icon" onclick="copyField('viewName')"><i class="bi bi-clipboard"></i></button>
+        </div>
+        <div class="field">
+          <label style="flex:0 0 90px; text-align:center;">رقم الحلقة</label>
+          <input type="text" id="viewEpisode" readonly>
+          <button class="copy-icon" onclick="copyField('viewEpisode')"><i class="bi bi-clipboard"></i></button>
+        </div>
+        <div class="field">
+          <label style="flex:0 0 90px; text-align:center;">اسم البطاقة</label>
+          <input type="text" id="viewCardName" readonly>
+          <button class="copy-icon" onclick="copyField('viewCardName')"><i class="bi bi-clipboard"></i></button>
+        </div>
+        <div class="field">
+          <label style="flex:0 0 90px; text-align:center;">رابط الصورة</label>
+          <input type="text" id="viewImage" readonly>
+          <button class="copy-icon" onclick="copyField('viewImage')"><i class="bi bi-clipboard"></i></button>
+        </div>
+        <div class="field">
+          <label style="flex:0 0 90px; text-align:center;">رابط النسخة المجانية</label>
+          <input type="text" id="viewLink" readonly>
+          <button class="copy-icon" onclick="copyField('viewLink')"><i class="bi bi-clipboard"></i></button>
+        </div>
+        <div class="field">
+          <label style="flex:0 0 90px; text-align:center;">رابط النسخة المميزة</label>
+          <input type="text" id="viewPremiumLink" readonly>
+          <button class="copy-icon" onclick="copyField('viewPremiumLink')"><i class="bi bi-clipboard"></i></button>
+        </div>
+      </div>
+      <div class="actions"><button class="btn secondary" onclick="closeViewModal()">إغلاق</button></div>
+    </div>
+  </div>
+
+  <!-- Menu Dropdown for Card Actions -->
+  <div id="cardActionDropdown" class="dropdown" style="position: absolute; top: 55px; left: 0; display: none; z-index: 100;">
+    <a href="#" onclick="viewEpisode(this)">عرض</a>
+    <a href="#" onclick="editEpisode(this)">تعديل</a>
+    <a href="#" onclick="deleteEpisode(this)" style="color: #ff4444;">حذف</a>
+  </div>
+
+  <div id="toast" class="custom-toast"></div>
+</div>
+
+<script>
+(() => {
+  // ⚠️ تم استبدال localStorage بـ Google Sheets كمصدر بيانات رئيسي
+  const allowedUsers = ["ZERO","Abood zakria","Sayed","Mohamed","Hossam","Developer 06","Developer 07"];
+  const currentUser = localStorage.getItem("premiumUser");
+
+  // التحقق من المستخدم قبل عرض أي شيء
+  if (!allowedUsers.includes(currentUser)) {
+    alert("هذه الصفحة مخصصة للمطورين فقط.");
+    location.href = "https://zero4animes.blogspot.com/p/zero-anime-body-margin-0-padding-0-font_6.html";
+    return;
+  }
+
+  document.getElementById('animePage').style.display = 'block';
+
+  const grid = document.getElementById('grid'),
+        formModal = document.getElementById('formModal'),
+        modalTitle = document.getElementById('modalTitle'),
+        fieldName = document.getElementById('fieldName'),
+        fieldEpisode = document.getElementById('fieldEpisode'),
+        fieldImage = document.getElementById('fieldImage'),
+        fieldLink = document.getElementById('fieldLink'),
+        fieldPremiumLink = document.getElementById('fieldPremiumLink'),
+        saveBtn = document.getElementById('saveBtn'),
+        cancelBtn = document.getElementById('cancelBtn'),
+        openAddBtn = document.getElementById('openAddBtn'),
+        refreshBtn = document.getElementById('refreshBtn'),
+        loadingMsg = document.getElementById('loadingMsg'),
+        toast = document.getElementById('toast'),
+        usernameDisplay = document.getElementById("usernameDisplay"),
+        googleSheetBtn = document.getElementById('googleSheetBtn');
+
+  if (currentUser) usernameDisplay.textContent = "مرحبا: " + currentUser;
+
+  const viewModal = document.getElementById('viewModal'),
+        viewID = document.getElementById('viewID'),
+        viewName = document.getElementById('viewName'),
+        viewEpisode = document.getElementById('viewEpisode'),
+        viewCardName = document.getElementById('viewCardName'),
+        viewImage = document.getElementById('viewImage'),
+        viewLink = document.getElementById('viewLink'),
+        viewPremiumLink = document.getElementById('viewPremiumLink');
+
+  const cardActionDropdown = document.getElementById('cardActionDropdown');
+  let currentEditingId = null; // لتخزين ID عند التعديل
+
+  // ✅ رابط Google Sheets (استبدل برابطك الفعلي إذا تغير)
+  const SPREADSHEET_ID = "1UxycaX0pPP10YgFUi1dFMeoORN3w_-AfG3K3Hq9QUEU";
+  const SHEET_NAME = "Sheet1"; // اسم الورقة في الشيت
+  const API_URL = `https://script.google.com/macros/s/AKfycbwEi5Uff1d_B-Kg93QNfTnnAQXxSd8EZk90-b5xl2LOUsF5vsk1Y6Vvjo_MuL17YNUAjw/exec?spreadsheetId=${SPREADSHEET_ID}&sheet=${SHEET_NAME}`;
+
+  // ✅ دالة لتحويل رقم الحلقة لصيغة 01, 02, ... 09
+  const formatEpisodeNumber = (num) => {
+    const n = parseInt(num, 10);
+    if (isNaN(n)) return num;
+    return n < 10 ? `0${n}` : `${n}`;
+  };
+
+  // ✅ دالة لبناء اسم البطاقة تلقائيًا
+  const buildCardName = (animeName, episodeNum) => {
+    const formattedEpisode = formatEpisodeNumber(episodeNum);
+    return `مشاهدة الحلقة (${formattedEpisode}) من أنمي ${animeName} مترجمة بأعلى جودة`;
+  };
+
+  // ✅ دالة لتحميل البيانات من Google Apps Script
+  const fetchAnimeList = async () => {
+    loadingMsg.style.display = 'block';
+    loadingMsg.textContent = "جاري تحميل البيانات من قاعدة البيانات...";
+    refreshBtn.disabled = true;
+    refreshBtn.innerHTML = '<i class="bi bi-arrow-repeat spin"></i> جاري التحديث...';
+    grid.style.display = 'none';
+
+    try {
+      const response = await fetch(API_URL);
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      const data = await response.json();
+      
+      if (data.success && Array.isArray(data.data)) {
+        return data.data.map(item => ({
+          ID: item.ID || '',
+          'Anime Name': item['Anime Name'] || '',
+          'Episode Number': item['Episode Number'] || '',
+          'Card Name': item['Card Name'] || '',
+          'Image URL': item['Image URL'] || '',
+          Link: item.Link || '',
+          'Premium Link': item['Premium Link'] || ''
+        }));
+      } else {
+        throw new Error('البيانات غير صالحة');
+      }
+    } catch (error) {
+      console.error('خطأ في جلب البيانات:', error);
+      showToast("فشل في تحميل البيانات. تحقق من الاتصال أو اتصل بالمطور.");
+      return [];
+    } finally {
+      loadingMsg.style.display = 'none';
+      refreshBtn.disabled = false;
+      refreshBtn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> تحديث القائمة';
+      grid.style.display = 'grid';
+    }
+  };
+
+  // ✅ دالة لحفظ بيانات جديدة أو تعديلها في Google Sheets
+  const saveToSheet = async (data, isUpdate = false) => {
+    const payload = {
+      action: isUpdate ? 'update' : 'create',
+      data: data
+    };
+
+    try {
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const result = await response.json();
+      if (result.success) {
+        return true;
+      } else {
+        throw new Error(result.message || 'فشل الحفظ');
+      }
+    } catch (error) {
+      console.error('خطأ في الحفظ:', error);
+      return false;
+    }
+  };
+
+  // ✅ دالة لحذف سطر من Google Sheets
+  const deleteFromSheet = async (id) => {
+    const payload = {
+      action: 'delete',
+      id: id
+    };
+
+    try {
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const result = await response.json();
+      return result.success;
+    } catch (error) {
+      console.error('خطأ في الحذف:', error);
+      return false;
+    }
+  };
+
+  // ✅ عرض البطاقات بناءً على البيانات
+  const renderGrid = (list) => {
+    grid.innerHTML = '';
+    list.forEach(item => {
+      const card = document.createElement('div');
+      card.className = 'anime-card';
+      card.dataset.id = item.ID;
+
+      card.innerHTML = `
+        <img src="${item['Image URL'] || 'https://via.placeholder.com/180x210?text=No+Image'}" alt="${item['Anime Name']}">
+        <div class="title">${item['Card Name'] || 'غير معرف'}</div>
+        <div class="card-menu" title="خيارات البطاقة"><i class="bi bi-three-dots-vertical"></i></div>
+      `;
+
+      // إضافة حدث النقر على البطاقة لعرض التفاصيل
+      card.addEventListener('click', (e) => {
+        if (!e.target.closest('.card-menu')) {
+          openViewModal(item);
+        }
+      });
+
+      // إضافة حدث النقر على أيقونة القائمة
+      const menuBtn = card.querySelector('.card-menu');
+      menuBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+
+        // تحديد موقع القائمة المنبثقة
+        const rect = menuBtn.getBoundingClientRect();
+        cardActionDropdown.style.display = 'flex';
+        cardActionDropdown.style.top = (rect.bottom + window.scrollY) + 'px';
+        cardActionDropdown.style.left = (rect.left + window.scrollX) + 'px';
+
+        // تخزين ID للعمل عليه لاحقًا
+        currentEditingId = item.ID;
+
+        // إغلاق القائمة عند النقر خارجها
+        document.addEventListener('click', closeDropdown);
+      });
+
+      grid.appendChild(card);
+    });
+  };
+
+  // ✅ إغلاق القائمة المنبثقة
+  const closeDropdown = () => {
+    cardActionDropdown.style.display = 'none';
+    document.removeEventListener('click', closeDropdown);
+  };
+
+  // ✅ فتح مودال العرض
+  const openViewModal = (item) => {
+    viewID.value = item.ID;
+    viewName.value = item['Anime Name'];
+    viewEpisode.value = item['Episode Number'];
+    viewCardName.value = item['Card Name'];
+    viewImage.value = item['Image URL'];
+    viewLink.value = item.Link;
+    viewPremiumLink.value = item['Premium Link'];
+    viewModal.style.display = 'flex';
+  };
+
+  // ✅ فتح مودال الإضافة / التعديل
+  const openModal = (isEdit = false, item = null) => {
+    modalTitle.textContent = isEdit ? "تعديل الحلقة" : "إضافة حلقة جديدة";
+    fieldName.value = isEdit ? item['Anime Name'] : "";
+    fieldEpisode.value = isEdit ? item['Episode Number'] : "";
+    fieldImage.value = isEdit ? item['Image URL'] : "";
+    fieldLink.value = isEdit ? item.Link : "";
+    fieldPremiumLink.value = isEdit ? item['Premium Link'] : "";
+
+    if (isEdit) {
+      currentEditingId = item.ID;
+    } else {
+      currentEditingId = null;
+    }
+
+    formModal.style.display = "flex";
+  };
+
+  // ✅ إغلاق مودال الإضافة
+  const closeModal = () => {
+    formModal.style.display = "none";
+    currentEditingId = null;
+  };
+
+  // ✅ حفظ الحلقة (إضافة أو تعديل)
+  const saveAnime = async () => {
+    const animeName = fieldName.value.trim();
+    const episodeNum = fieldEpisode.value.trim();
+    const image = fieldImage.value.trim();
+    const link = fieldLink.value.trim();
+    const premium = fieldPremiumLink.value.trim();
+
+    if (!animeName || !episodeNum || !image || !link || !premium) {
+      showToast("يرجى ملء جميع الحقول");
+      return;
+    }
+
+    // ✅ تحقق من أن رقم الحلقة أرقام فقط
+    if (!/^\d+$/.test(episodeNum)) {
+      showToast("رقم الحلقة يجب أن يكون أرقامًا فقط");
+      return;
+    }
+
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = '<i class="bi bi-arrow-repeat spin"></i> جاري الحفظ...';
+
+    const formattedEpisode = formatEpisodeNumber(episodeNum);
+    const cardName = buildCardName(animeName, formattedEpisode);
+
+    const newData = {
+      'Anime Name': animeName,
+      'Episode Number': episodeNum,
+      'Card Name': cardName,
+      'Image URL': image,
+      Link: link,
+      'Premium Link': premium
+    };
+
+    let success;
+    if (currentEditingId) {
+      // تعديل
+      newData.ID = currentEditingId;
+      success = await saveToSheet(newData, true);
+      if (success) {
+        showToast("تم التعديل بنجاح");
+      }
+    } else {
+      // إضافة جديدة
+      success = await saveToSheet(newData);
+      if (success) {
+        showToast("تم الحفظ بنجاح");
+      }
+    }
+
+    if (success) {
+      closeModal();
+      updateGrid(true);
+    } else {
+      showToast("فشل الحفظ. حاول مرة أخرى.");
+      saveBtn.disabled = false;
+      saveBtn.innerHTML = 'حفظ';
+    }
+  };
+
+  // ✅ عرض التفاصيل من القائمة المنبثقة
+  window.viewEpisode = function (el) {
+    closeDropdown();
+    const item = animeList.find(a => a.ID === currentEditingId);
+    if (item) openViewModal(item);
+  };
+
+  // ✅ تعديل من القائمة المنبثقة
+  window.editEpisode = function (el) {
+    closeDropdown();
+    const item = animeList.find(a => a.ID === currentEditingId);
+    if (item) openModal(true, item);
+  };
+
+  // ✅ حذف من القائمة المنبثقة
+  window.deleteEpisode = async function (el) {
+    closeDropdown();
+    if (!confirm("هل أنت متأكد أنك تريد حذف هذه الحلقة؟ لا يمكن التراجع عن هذا الإجراء!")) return;
+
+    const success = await deleteFromSheet(currentEditingId);
+    if (success) {
+      showToast("تم الحذف بنجاح");
+      updateGrid(true);
+    } else {
+      showToast("فشل الحذف. حاول مرة أخرى.");
+    }
+  };
+
+  // ✅ تحديث الشاشة (استدعاء fetch + render)
+  const updateGrid = async (showLoading = true) => {
+    if (showLoading) {
+      loadingMsg.style.display = 'block';
+      loadingMsg.textContent = firstLoad ? "جاري تحميل البيانات..." : "جاري تحديث البيانات...";
+      refreshBtn.disabled = true;
+      refreshBtn.innerHTML = '<i class="bi bi-arrow-repeat spin"></i> جاري التحديث...';
+    }
+    grid.style.display = 'none';
+
+    animeList = await fetchAnimeList();
+    renderGrid(animeList);
+
+    if (showLoading) {
+      loadingMsg.style.display = 'none';
+      refreshBtn.disabled = false;
+      refreshBtn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> تحديث القائمة';
+      grid.style.display = 'grid';
+    }
+    firstLoad = false;
+  };
+
+  // ✅ نسخ الحقل
+  window.copyField = (fieldID) => {
+    const input = document.getElementById(fieldID);
+    input.select();
+    input.setSelectionRange(0, 99999);
+    document.execCommand("copy");
+    showToast("تم النسخ!");
+  };
+
+  // ✅ إغلاق مودال العرض
+  window.closeViewModal = () => {
+    viewModal.style.display = 'none';
+  };
+
+  // ✅ إشعارات Toast
+  const showToast = (msg) => {
+    toast.textContent = msg;
+    toast.style.opacity = '1';
+    toast.style.transform = 'translateX(-50%) scale(1.1)';
+    toast.style.display = 'flex';
+    setTimeout(() => {
+      toast.style.transition = 'transform 0.4s ease, opacity 0.4s ease';
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateX(-50%) scale(0.8)';
+      setTimeout(() => {
+        toast.style.display = 'none';
+        toast.style.transition = '';
+        toast.style.transform = 'translateX(-50%) scale(0)';
+      }, 400);
+    }, 2000);
+  };
+
+  // ✅ البحث التلقائي
+  const searchInput = document.getElementById('searchInput');
+  const filterCards = () => {
+    const query = searchInput.value.toLowerCase().trim();
+    const cards = document.querySelectorAll('.anime-card');
+    cards.forEach(card => {
+      const titleElement = card.querySelector('.title');
+      const titleText = titleElement.textContent.toLowerCase();
+      if (query === '' || titleText.includes(query)) {
+        card.style.display = 'block';
+      } else {
+        card.style.display = 'none';
+      }
+    });
+  };
+  searchInput.addEventListener('input', filterCards);
+
+  // ✅ ضبط إدخال رقم الحلقة ليقبل أرقام فقط
+  fieldEpisode.addEventListener('input', function () {
+    this.value = this.value.replace(/[^0-9]/g, '');
+  });
+
+  // ✅ تفعيل الزر "فتح الشيت"
+  document.getElementById('googleSheetBtn').addEventListener('click', () => {
+    window.open('https://docs.google.com/spreadsheets/d/1UxycaX0pPP10YgFUi1dFMeoORN3w_-AfG3K3Hq9QUEU/edit?usp=sharing', '_blank');
+  });
+
+  // ✅ إدارة القائمة المنبثقة
+  document.addEventListener('click', (e) => {
+    if (!document.querySelector('.card-menu').contains(e.target)) {
+      closeDropdown();
+    }
+  });
+
+  // ✅ أحداث الأزرار
+  openAddBtn.addEventListener('click', () => openModal(false));
+  cancelBtn.addEventListener('click', closeModal);
+  saveBtn.addEventListener('click', saveAnime);
+  refreshBtn.addEventListener('click', () => updateGrid(true));
+
+  // ✅ تسجيل الخروج
+  window.logout = () => {
+    localStorage.removeItem("premiumUser");
+    window.location.href = "https://zero4animes.blogspot.com/p/zero-anime-body-margin-0-padding-0-font_6.html";
+  };
+
+  // ✅ تحميل البيانات عند أول تحميل
+  let animeList = [];
+  let firstLoad = true;
+  updateGrid(true);
+
+})();
+</script>
+</body>
+</html>
