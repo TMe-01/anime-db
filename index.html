@@ -129,6 +129,34 @@
   from{transform:rotate(0deg)}
   to{transform:rotate(360deg)}
 }
+
+/* ✅ ✅ ✅ زر "سجل كمطور" الجديد */
+#developerLoginBtn {
+  position: absolute;
+  top: 15px;
+  right: 25px;
+  z-index: 100;
+  appearance: none;
+  border: none;
+  background: linear-gradient(180deg, #d4af37, #b48c2a);
+  color: #12121d;
+  font-weight: 800;
+  padding: 8px 16px;
+  font-size: 0.9em;
+  border-radius: 12px;
+  cursor: pointer;
+  box-shadow: 0 4px 10px rgba(212,175,55,0.3);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  font-family: 'Cairo', sans-serif;
+}
+#developerLoginBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 14px rgba(212,175,55,0.4);
+}
+#developerLoginBtn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(212,175,55,0.2);
+}
 </style>
 </head>
 <body>
@@ -147,6 +175,10 @@
       </div>
     </div>
   </div>
+
+  <!-- ✅ زر "سجل كمطور" الجديد -->
+  <button id="developerLoginBtn">سجل كمطور</button>
+
   <div class="container">
     <div class="controls" id="controlsContainer">
       <button class="btn" id="openAddBtn"><i class="bi bi-plus-circle"></i> إضافة حلقة جديدة</button>
@@ -241,13 +273,40 @@
   const allowedUsers = ["ZERO","Abood zakria","Sayed","Mohamed","Hossam","Developer 06","Developer 07"];
   const currentUser = localStorage.getItem("premiumUser");
 
+  // ✅ دالة لتسجيل المطور عبر الزر
+  const setupDeveloperLoginButton = () => {
+    const btn = document.getElementById('developerLoginBtn');
+    if (!btn) return;
+
+    btn.addEventListener('click', () => {
+      const input = prompt(
+        "أدخل اسمك من القائمة المسموحة:\n" +
+        "ZERO, Abood zakria, Sayed, Mohamed, Hossam, Developer 06, Developer 07"
+      );
+
+      if (input === null) return; // المستخدم ضغط "إلغاء"
+
+      const trimmed = input.trim();
+      if (allowedUsers.includes(trimmed)) {
+        localStorage.setItem("premiumUser", trimmed);
+        showToast(`تم تسجيلك كمطور: ${trimmed}`);
+        location.reload(); // إعادة تحميل الصفحة
+      } else {
+        alert("اسم غير مسموح به. الرجاء استخدام أحد الأسماء المسموحة.");
+      }
+    });
+  };
+
   // التحقق من المستخدم قبل عرض أي شيء
   if (!allowedUsers.includes(currentUser)) {
+    setupDeveloperLoginButton(); // نعرض الزر فقط إذا لم يكن مسجلًا
+    document.getElementById('animePage').style.display = 'none';
     alert("هذه الصفحة مخصصة للمطورين فقط.");
     location.href = "https://zero4animes.blogspot.com/p/zero-anime-body-margin-0-padding-0-font_6.html";
     return;
   }
 
+  // إذا المستخدم مسموح، نعرض الصفحة
   document.getElementById('animePage').style.display = 'block';
 
   const grid = document.getElementById('grid'),
@@ -284,7 +343,9 @@
   // ✅ رابط Google Sheets (استبدل برابطك الفعلي إذا تغير)
   const SPREADSHEET_ID = "1UxycaX0pPP10YgFUi1dFMeoORN3w_-AfG3K3Hq9QUEU";
   const SHEET_NAME = "Sheet1"; // اسم الورقة في الشيت
-  const API_URL = `https://script.google.com/macros/s/AKfycbwEi5Uff1d_B-Kg93QNfTnnAQXxSd8EZk90-b5xl2LOUsF5vsk1Y6Vvjo_MuL17YNUAjw/exec?spreadsheetId=${SPREADSHEET_ID}&sheet=${SHEET_NAME}`;
+
+  // ✅ استخدم الرابط المباشر لـ Web App (الذي نشرته على GitHub Pages)
+  const API_URL = "https://script.google.com/macros/s/AKfycbxZjBkTQmVnRyD5uWlLJtO3vI6MfEj5K4o7j9r8d4P5qZ3w3x9Qb6y7vY2N7jJZ/exec";
 
   // ✅ دالة لتحويل رقم الحلقة لصيغة 01, 02, ... 09
   const formatEpisodeNumber = (num) => {
@@ -341,7 +402,7 @@
   const saveToSheet = async (data, isUpdate = false) => {
     const payload = {
       action: isUpdate ? 'update' : 'create',
-      data: data
+      data
     };
 
     try {
@@ -661,8 +722,10 @@
   let firstLoad = true;
   updateGrid(true);
 
+  // ✅ تفعيل زر "سجل كمطور" بعد تحميل الصفحة
+  setupDeveloperLoginButton();
+
 })();
 </script>
 </body>
-
 </html>
